@@ -1,8 +1,7 @@
 from checkpoints import CHECKPOINTS
 from context_manager import (
     get_context,
-    generate_questions,
-    evaluate_answer,
+    generate_mcqs,
     feynman_explanation
 )
 
@@ -16,16 +15,30 @@ for cp in CHECKPOINTS:
     print("\nAI Explanation:")
     print(explanation)
 
-    # Step 2: Questions
-    print("\nAI Questions:")
-    questions = generate_questions(cp["topic"])
-    print(questions)
+    # =============================
+    # UPDATED: MCQ evaluation (10 questions, score out of 100)
+    # =============================
+    print("\nMCQ Evaluation (10 Questions):")
+    mcqs = generate_mcqs(cp["topic"])
+    correct = 0
 
-    # Step 3: User Answer
-    user_answer = input("\nYour Answer: ")
+    for i, q in enumerate(mcqs, start=1):
+        print(f"\nQ{i}. {q['question']}")
+        for opt_idx, opt_text in enumerate(q["options"]):
+            print(f"  {opt_idx + 1}. {opt_text}")
+        while True:
+            try:
+                choice = int(input("Your choice (1-4): ").strip())
+                if choice in (1, 2, 3, 4):
+                    break
+            except Exception:
+                pass
+            print("Please enter a valid option (1-4).")
 
-    # Step 4: Evaluation (70% rule)
-    score = evaluate_answer(user_answer, cp["topic"])
+        if (choice - 1) == q["answer_index"]:
+            correct += 1
+
+    score = int((correct / 10) * 100)
     print(f"\nYour Score: {score}%")
 
     if score >= 70:
