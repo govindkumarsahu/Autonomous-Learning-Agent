@@ -1,7 +1,5 @@
-
 from datetime import datetime, timedelta, timezone
 from typing import List
-import pytz
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -91,32 +89,31 @@ def health():
 @app.post("/register")
 async def register(user: UserCreate):
     db = get_database()
-    
-    # Check if user exists
+
     existing_user = await db.users.find_one({"email": user.email})
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
-    # Create user
+
     hashed_password = get_password_hash(user.password)
-    ist = pytz.timezone('Asia/Kolkata')
+
     user_dict = {
         "email": user.email,
         "hashed_password": hashed_password,
-        "created_at": datetime.now(ist)
+        "created_at": datetime.now(timezone.utc)
     }
+
     await db.users.insert_one(user_dict)
-    
+
     return {"message": "User created successfully", "email": user.email}
 
 
 @app.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     db = get_database()
-    
+
     user = await db.users.find_one({"email": form_data.username})
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
@@ -124,7 +121,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
@@ -140,16 +137,14 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 @app.get("/progress")
 async def get_progress(current_user: dict = Depends(get_current_user)):
     db = get_database()
-    
-    # Get all progress records for this user
+
     progress_records = await db.progress.find(
         {"user_id": str(current_user["_id"])}
     ).sort("date", -1).to_list(length=100)
-    
-    # Convert ObjectId to string for JSON serialization
+
     for record in progress_records:
         record["_id"] = str(record["_id"])
-    
+
     return {"progress": progress_records}
 
 
@@ -158,7 +153,6 @@ async def get_progress(current_user: dict = Depends(get_current_user)):
 
 @app.post("/explain", response_model=ExplainResponse)
 async def explain(req: ExplainRequest, current_user: dict = Depends(get_current_user)):
-    # Explanation is cached per topic in-memory to keep quizzes grounded.
     explanation = context_manager.explain(req.topic)
     return ExplainResponse(explanation=explanation)
 
@@ -168,10 +162,8 @@ async def generate_quiz(req: GenerateQuizRequest, current_user: dict = Depends(g
     questions, _relevance = context_manager.generate_quiz(req.topic)
 
     if len(questions) != 10:
-        # Business rule: always exactly 10 MCQs
         raise HTTPException(status_code=500, detail="Quiz generation did not produce exactly 10 questions")
 
-    # Requirement: always return 100 (do not randomize).
     return GenerateQuizResponse(questions=questions, relevance_score=100)
 
 
@@ -189,41 +181,36 @@ async def evaluate(req: EvaluateRequest, current_user: dict = Depends(get_curren
         if user_ans == correct_ans:
             correct += 1
 
-    # Business rule: percentage score
     score = int((correct / 10) * 100)
-    
-    # Get database and check attempt count
+
     db = get_database()
     user_id = str(current_user["_id"])
-    
-    # Count existing attempts for this topic
+
     existing_attempts = await db.progress.count_documents({
         "user_id": user_id,
         "topic": req.topic
     })
-    
+
     attempt_number = existing_attempts + 1
-    
-    # Check if max attempts reached
+
     if attempt_number > 3:
         raise HTTPException(
             status_code=400,
             detail="Maximum 3 attempts reached for this topic"
         )
-    
-    # Save progress to database
-    ist = pytz.timezone('Asia/Kolkata')
+
     progress_record = {
         "user_id": user_id,
         "topic": req.topic,
         "attempt_number": attempt_number,
         "score": score,
-        "date": datetime.now(ist)
+        "date": datetime.now(timezone.utc)
     }
+
     await db.progress.insert_one(progress_record)
-    
+
     max_attempts_reached = (attempt_number == 3 and score < 70)
-    
+
     return EvaluateResponse(
         score=score,
         attempt_number=attempt_number,
@@ -235,4 +222,3 @@ async def evaluate(req: EvaluateRequest, current_user: dict = Depends(get_curren
 async def reteach(req: ReteachRequest, current_user: dict = Depends(get_current_user)):
     simplified = context_manager.reteach(req.topic)
     return ReteachResponse(simplified_explanation=simplified)
-
