@@ -10,3 +10,4 @@ passlib[bcrypt]
 python-dotenv
 pytz
 python-multipart
+langchain-groq
