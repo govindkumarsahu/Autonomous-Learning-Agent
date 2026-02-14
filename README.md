@@ -37,6 +37,10 @@ A full-stack AI-powered adaptive learning platform with authentication, progress
 - MongoDB (local or Atlas)
 - Groq API Key
 
+### Quick Local Setup
+
+For local development, follow these steps. For **production deployment to Render**, see [RENDER_GUIDE.md](RENDER_GUIDE.md).
+
 ### Backend Setup
 
 1. Navigate to backend directory:
@@ -84,6 +88,10 @@ npm run dev
 ```
 
 4. Open browser at `http://localhost:5173`
+
+## 🚀 Production Deployment
+
+See [RENDER_GUIDE.md](RENDER_GUIDE.md) for step-by-step instructions to deploy to Render (free hosting).
 
 ## Usage Flow
 
